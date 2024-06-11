@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juego</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+        color: #fff;
+        font-family: Arial, sans-serif;
+    }
+    canvas {
+        display: block;
+        margin: auto;
+        border: 1px solid black;
+        background-image: url('fondo.png');
+        background-size: cover;
+    }
+    #score {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 20px;
+        color: white;
+    }
+    #lives {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 20px;
+        color: white;
+    }
+    #gameOver {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        font-size: 30px;
+        color: red;
+    }
+    #gameOverText {
+        color: red;
+        font-size: 50px;
+    }
+    #gameOver button {
+        font-size: 24px;
+        padding: 10px 20px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    #gameOver button:hover {
+        background-color: #45a049;
+    }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<div id="score">Puntuación: 0</div>
+<div id="lives">Vidas: <img id="vida1" src="vidas1.png"> <img id="vida2" src="vidas1.png"> <img id="vida3" src="vidas1.png"></div>
+<div id="gameOver">
+    <div id="gameOverText">¡Has perdido!</div>
+    <button onclick="restartGame()">Reiniciar</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const vida1Element = document.getElementById('vida1');
+    const vida2Element = document.getElementById('vida2');
+    const vida3Element = document.getElementById('vida3');
+    const gameOverElement = document.getElementById('gameOver');
+
+    // Imágenes
+    const fondo = new Image();
+    fondo.src = 'fondo.png';
+    const personaje = new Image();
+    personaje.src = 'personaje.png';
+    const personaje2 = new Image(); // Nueva imagen para el personaje
+    personaje2.src = 'personaje2.png';
+    const vidas1 = new Image();
+    vidas1.src = 'vidas1.png';
+    const vidas2 = new Image();
+    vidas2.src = 'vidas2.png';
+    
+    // Objetos que caen
+    const objetosA = ['objetoA1.png', 'objetoA2.png', 'objetoA3.png'];
+    const objetoB = 'objetoB.png';
+    const objetoC = 'objetoC.png';
+
+    // Posiciones iniciales
+    let personajeX = canvas.width / 2 - personaje.width / 2;
+    let personajeY = canvas.height / 2 - personaje.height / 2;
+
+    // Lista de objetos que caen
+    let objetosCayendo = [];
+    let puntuacion = 0;
+    let vidas = 3;
+    let isInvulnerable = false; // Variable para controlar la invulnerabilidad temporal
+
+    // Dibujar imágenes
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
+        
+        // Dibuja el personaje adecuado dependiendo de si es invulnerable o no
+        if (isInvulnerable) {
+            ctx.drawImage(personaje2, personajeX, personajeY);
+        } else {
+            ctx.drawImage(personaje, personajeX, personajeY);
+        }
+
+        // Dibujar objetos que caen
+        for (let i = 0; i < objetosCayendo.length; i++) {
+            ctx.drawImage(objetosCayendo[i].image, objetosCayendo[i].x, objetosCayendo[i].y);
+            // Mover objeto hacia abajo
+            objetosCayendo[i].y += objetosCayendo[i].speed;
+
+            // Verificar colisión con personaje (solo para objetosA)
+            if (objetosCayendo[i].type === 'objetoA' &&
+                objetosCayendo[i].x < personajeX + personaje.width &&
+                objetosCayendo[i].x + objetosCayendo[i].image.width > personajeX &&
+                objetosCayendo[i].y < personajeY + personaje.height &&
+                objetosCayendo[i].y + objetosCayendo[i].image.height > personajeY) {
+                    puntuacion += 10;
+                    scoreElement.textContent = 'Puntuación: ' + puntuacion;
+                    objetosCayendo.splice(i, 1);
+                    i--;
+            }
+
+            // Verificar colisión con personaje (solo para objetoC)
+            if (objetosCayendo[i].type === 'objetoC' &&
+                objetosCayendo[i].x < personajeX + personaje.width &&
+                objetosCayendo[i].x + objetosCayendo[i].image.width > personajeX &&
+                objetosCayendo[i].y < personajeY + personaje.height &&
+                objetosCayendo[i].y + objetosCayendo[i].image.height > personajeY) {
+                    perderVida();
+                    objetosCayendo.splice(i, 1);
+                    i--;
+            }
+
+            // Verificar colisión con personaje (solo para objetoB)
+            if (!isInvulnerable && objetosCayendo[i].type === 'objetoB' &&
+                objetosCayendo[i].x < personajeX + personaje.width &&
+                objetosCayendo[i].x + objetosCayendo[i].image.width > personajeX &&
+                objetosCayendo[i].y < personajeY + personaje.height &&
+                objetosCayendo[i].y + objetosCayendo[i].image.height > personajeY) {
+                    // Cambiar la imagen del personaje y hacerlo invulnerable temporalmente
+                    personaje.src = 'personaje2.png';
+                    isInvulnerable = true;
+                    setTimeout(() => {
+                        personaje.src = 'personaje.png';
+                        isInvulnerable = false;
+                    }, 5000); // Cambia la imagen de vuelta después de 5 segundos
+                    objetosCayendo.splice(i, 1);
+                    i--;
+            }
+
+            // Eliminar objetos que salen del canvas
+            if (objetosCayendo[i].y > canvas.height) {
+                objetosCayendo.splice(i, 1);
+                i--;
+            }
+        }
+    }
+
+    // Controlar el movimiento del personaje con las teclas
+    window.addEventListener('keydown', function(event) {
+        if (!isInvulnerable) { // Solo permite mover al personaje si no es invulnerable
+            switch(event.key) {
+                case 'ArrowLeft':
+                    if (personajeX > 0) {
+                        personajeX -= 10;
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (personajeX < canvas.width - personaje.width) {
+                        personajeX += 10;
+                    }
+                    break;
+                case 'ArrowUp':
+                    if (personajeY > 0) {
+                        personajeY -= 10;
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (personajeY < canvas.height - personaje.height) {
+                        personajeY += 10;
+                    }
+                    break;
+            }
+        }
+        draw();
+    });
+
+    // Función para dibujar un objeto aleatorio que cae
+    function drawRandomObject() {
+        let randomX = Math.random() * (canvas.width - 50);
+        let objeto;
+        let type;
+        let speed = Math.random() * 2 + 1; // Velocidad aleatoria entre 1 y 3
+
+        if (Math.random() < 0.7) { // Probabilidad de 70% para objetosA, 30% para objetoB o objetoC
+            objeto = objetosA[Math.floor(Math.random() * objetosA.length)];
+            type = 'objetoA';
+        } else if (Math.random() < 0.5) {
+            objeto = objetoB;
+            type = 'objetoB';
+            // Función específica para objetoB
+            // ...
+        } else {
+            objeto = objetoC;
+            type = 'objetoC';
+            // Función específica para objetoC
+            // ...
+        }
+        
+        const objImage = new Image();
+        objImage.src = objeto;
+
+        objetosCayendo.push({
+            image: objImage,
+            x: randomX,
+            y: 0,
+            speed: speed,
+            type: type
+        });
+    }
+
+    // Función para perder una vida
+    function perderVida() {
+        vidas--;
+        if (vidas === 2) {
+            vida3Element.src = 'vidas2.png';
+        } else if (vidas === 1) {
+            vida2Element.src = 'vidas2.png';
+        } else if (vidas === 0) {
+            vida1Element.src = 'vidas2.png';
+            gameOver();
+        }
+    }
+
+    // Función para mostrar pantalla de game over
+    function gameOver() {
+        gameOverElement.style.display = 'block';
+        canvas.style.display = 'none';
+    }
+
+    function restartGame() {
+        gameOverElement.style.display = 'none';
+        canvas.style.display = 'block';
+        personajeX = canvas.width / 2 - personaje.width / 2;
+        personajeY = canvas.height / 2 - personaje.height / 2;
+        vidas = 3;
+        puntuacion = 0;
+        scoreElement.textContent = 'Puntuación: ' + puntuacion;
+        vida1Element.src = 'vidas1.png';
+        vida2Element.src = 'vidas1.png';
+        vida3Element.src = 'vidas1.png';
+        objetosCayendo = [];
+        draw();
+    }
+
+    // Llamar a la función para dibujar objetos aleatorios cada cierto tiempo
+    setInterval(drawRandomObject, 2000); // Cada 2 segundos
+
+    // Llamar a la función de dibujo principal
+    setInterval(draw, 10); // Llamar cada 10 milisegundos
+
+    // Iniciar dibujo
+    draw();
+</script>
+</body>
+</html>
